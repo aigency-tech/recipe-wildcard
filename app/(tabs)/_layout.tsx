@@ -7,7 +7,7 @@ import { colors } from '../../src/theme/colors';
 function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>
+      <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.6 }}>
         {icon}
       </Text>
     </View>
@@ -21,20 +21,24 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary.DEFAULT,
-        tabBarInactiveTintColor: colors.gray[500],
+        tabBarActiveTintColor: colors.secondary.DEFAULT,
+        tabBarInactiveTintColor: colors.gray[400],
         tabBarPosition: 'top',
         tabBarStyle: {
           backgroundColor: colors.white,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.gray[200],
+          borderBottomWidth: 0,
           paddingTop: insets.top + 4,
           paddingBottom: 8,
           height: insets.top + 56,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
+          elevation: 3,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontWeight: '600',
         },
       }}
     >
@@ -49,8 +53,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="create/index"
         options={{
-          title: 'Create',
-          tabBarIcon: ({ focused }) => <TabIcon icon="➕" focused={focused} />,
+          title: 'Discover',
+          tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -97,6 +101,14 @@ export default function TabLayout() {
           href: null,
           headerShown: true,
           headerTitle: 'AI Recipe Generator',
+        }}
+      />
+      <Tabs.Screen
+        name="create/import-url"
+        options={{
+          href: null,
+          headerShown: true,
+          headerTitle: 'Import from URL',
         }}
       />
     </Tabs>

@@ -46,6 +46,183 @@ export async function suggestWildcardIngredient(
   return parseWildcardResponse(text);
 }
 
+export async function parseRecipeFromUrl(url: string): Promise<CreateRecipeInput> {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Gemini API key is not configured. Please add EXPO_PUBLIC_GEMINI_API_KEY to your .env file.');
+  }
+
+  // Fetch the webpage content
+  let htmlContent: string;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+    }
+
+    htmlContent = await response.text();
+    console.log(`Fetched ${htmlContent.length} characters from URL`);
+  } catch (error: any) {
+    console.error('URL fetch error:', error);
+    if (error.message?.includes('Failed to fetch URL')) {
+      throw error;
+    }
+    throw new Error(`Unable to access the URL. Please check the link and try again.`);
+  }
+
+  // Try to extract JSON-LD structured data first (most recipe sites have this)
+  let structuredData = '';
+  const jsonLdMatches = htmlContent.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+  if (jsonLdMatches) {
+    for (const match of jsonLdMatches) {
+      const jsonContent = match.replace(/<script[^>]*>|<\/script>/gi, '');
+      if (jsonContent.includes('Recipe') || jsonContent.includes('recipe')) {
+        structuredData += jsonContent + '\n';
+      }
+    }
+  }
+
+  // Also try to find recipe-specific content areas
+  let recipeContent = '';
+
+  // Extract meta description
+  const metaDesc = htmlContent.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"[^>]*>/i);
+  if (metaDesc) {
+    recipeContent += `Meta Description: ${metaDesc[1]}\n\n`;
+  }
+
+  // Extract title
+  const titleMatch = htmlContent.match(/<title[^>]*>([^<]*)<\/title>/i);
+  if (titleMatch) {
+    recipeContent += `Page Title: ${titleMatch[1]}\n\n`;
+  }
+
+  // Try to get the main content (strip scripts, styles, nav, footer, ads)
+  let cleanedHtml = htmlContent
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/<header[\s\S]*?<\/header>/gi, '')
+    .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Use Gemini to extract the recipe
+  const prompt = `
+You are a recipe extraction expert. Extract the recipe from this webpage content.
+
+${structuredData ? `STRUCTURED DATA (JSON-LD) - This is the most reliable source:\n"""\n${structuredData.substring(0, 15000)}\n"""\n\n` : ''}
+
+PAGE CONTENT:
+"""
+${recipeContent}${cleanedHtml.substring(0, 20000)}
+"""
+
+Extract the recipe information. The structured data (if present) is the most reliable source.
+Look for:
+- Recipe title
+- Description or introduction
+- Ingredients list (with quantities and units)
+- Step-by-step instructions
+- Prep time, cook time, servings if available
+- Cuisine type if identifiable
+
+Respond in this exact JSON format:
+{
+  "title": "Recipe Title",
+  "description": "Brief appealing description of the dish",
+  "prep_time_minutes": 15,
+  "cook_time_minutes": 30,
+  "servings": 4,
+  "cuisine": "Italian or Other appropriate cuisine",
+  "difficulty": "easy|medium|hard",
+  "ingredients": [
+    {"name": "ingredient name", "quantity": "1", "unit": "cup", "is_wildcard": false}
+  ],
+  "instructions": [
+    {"step_number": 1, "content": "Step description"}
+  ]
+}
+
+IMPORTANT:
+- Most recipe pages WILL have recipe content. Look carefully for ingredient lists and cooking steps even if the format is unusual.
+- Every ingredient MUST have a unit. Common units: tsp, tbsp, cup, oz, lb, g, ea (each), clove, slice, piece, sprig, bunch, pinch, dash, to taste. Never leave unit empty.
+
+If you truly cannot find ANY recipe content, respond with:
+{"error": "No recipe found on this page"}
+
+Only respond with valid JSON, no other text.
+`;
+
+  console.log('Structured data found:', structuredData ? 'Yes' : 'No');
+  console.log('Sending to Gemini for parsing...');
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Check for error response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+
+    const data = JSON.parse(jsonMatch[0]);
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    const title = data.title || 'Untitled Recipe';
+    const cuisine = data.cuisine;
+
+    return {
+      title,
+      description: data.description || '',
+      image_url: getRecipeImageUrl(title, cuisine),
+      source: 'imported',
+      prep_time_minutes: data.prep_time_minutes,
+      cook_time_minutes: data.cook_time_minutes,
+      servings: data.servings,
+      cuisine,
+      difficulty: data.difficulty,
+      is_public: true,
+      ingredients: (data.ingredients || []).map((ing: any, index: number) => ({
+        name: ing.name,
+        quantity: String(ing.quantity || '1'),
+        unit: ing.unit || getDefaultUnit(ing.name),
+        is_wildcard: false,
+        order_index: index,
+      })),
+      instructions: (data.instructions || []).map((inst: any) => ({
+        step_number: inst.step_number,
+        content: inst.content,
+      })),
+    };
+  } catch (error: any) {
+    if (error?.message?.includes('API_KEY_INVALID')) {
+      throw new Error('Invalid Gemini API key. Please check your EXPO_PUBLIC_GEMINI_API_KEY in the .env file.');
+    }
+    if (error?.message?.includes('QUOTA_EXCEEDED')) {
+      throw new Error('Gemini API quota exceeded. Please try again later or check your API billing.');
+    }
+    if (error?.message === 'No recipe found on this page') {
+      throw error;
+    }
+    throw new Error(`Failed to extract recipe from URL: ${error?.message || 'Unknown error'}`);
+  }
+}
+
 export async function parseRecipeFromText(recipeText: string): Promise<CreateRecipeInput> {
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key is not configured. Please add EXPO_PUBLIC_GEMINI_API_KEY to your .env file.');
@@ -77,6 +254,8 @@ Respond in this exact JSON format:
     {"step_number": 1, "content": "Step description"}
   ]
 }
+
+IMPORTANT: Every ingredient MUST have a unit. Common units: tsp, tbsp, cup, oz, lb, g, ea (each), clove, slice, piece, sprig, bunch, pinch, dash, to taste. Never leave unit empty.
 
 Only respond with valid JSON, no other text.
 `;
@@ -131,6 +310,8 @@ Respond in this exact JSON format:
   "description": "Updated description mentioning the unique twist"
 }
 
+IMPORTANT: Every ingredient MUST have a unit. Common units: tsp, tbsp, cup, oz, lb, g, ea (each), clove, slice, piece, sprig, bunch, pinch, dash, to taste. Never leave unit empty.
+
 Only respond with valid JSON, no other text.
 `;
 
@@ -149,8 +330,8 @@ Only respond with valid JSON, no other text.
     // Add wildcard ingredients to existing ingredients
     const wildcardIngredients = (data.wildcard_ingredients || []).map((ing: any, index: number) => ({
       name: ing.name,
-      quantity: String(ing.quantity),
-      unit: ing.unit || '',
+      quantity: String(ing.quantity || '1'),
+      unit: ing.unit || getDefaultUnit(ing.name),
       is_wildcard: true,
       wildcard_reason: ing.reason,
       order_index: recipe.ingredients.length + index,
@@ -233,6 +414,14 @@ Respond in this exact JSON format:
   ]
 }
 
+IMPORTANT: Every ingredient MUST have a unit. Common units include:
+- Volume: tsp, tbsp, cup, fl oz, ml, L
+- Weight: oz, lb, g, kg
+- Count: ea (each), clove, slice, piece, sprig, bunch, pinch, dash
+- Other: to taste
+
+Never leave the unit field empty. Use "ea" for whole items like eggs, "clove" for garlic, "to taste" for seasonings like salt and pepper.
+
 Only respond with valid JSON, no other text.
 `;
 
@@ -282,20 +471,24 @@ function parseRecipeResponse(text: string, includeWildcard: boolean): CreateReci
 
     const data = JSON.parse(jsonMatch[0]);
 
+    const title = data.title || 'Untitled Recipe';
+    const cuisine = data.cuisine;
+
     return {
-      title: data.title || 'Untitled Recipe',
+      title,
       description: data.description || '',
+      image_url: getRecipeImageUrl(title, cuisine),
       source: includeWildcard ? 'wildcard_modified' : 'ai_generated',
       prep_time_minutes: data.prep_time_minutes,
       cook_time_minutes: data.cook_time_minutes,
       servings: data.servings,
-      cuisine: data.cuisine,
+      cuisine,
       difficulty: data.difficulty,
       is_public: true,
       ingredients: (data.ingredients || []).map((ing: any, index: number) => ({
         name: ing.name,
-        quantity: String(ing.quantity),
-        unit: ing.unit || '',
+        quantity: String(ing.quantity || '1'),
+        unit: ing.unit || getDefaultUnit(ing.name),
         is_wildcard: ing.is_wildcard || false,
         wildcard_reason: ing.wildcard_reason,
         order_index: index,
@@ -309,6 +502,81 @@ function parseRecipeResponse(text: string, includeWildcard: boolean): CreateReci
     console.error('Failed to parse recipe response:', error);
     throw new Error('Failed to parse AI recipe response');
   }
+}
+
+// Returns an appropriate stock image URL based on recipe title and cuisine
+function getRecipeImageUrl(title: string, cuisine?: string): string {
+  const titleLower = title.toLowerCase();
+  const cuisineLower = (cuisine || '').toLowerCase();
+
+  // Map of food keywords to Unsplash image URLs
+  const imageMap: { keywords: string[]; url: string }[] = [
+    { keywords: ['chili', 'beef stew'], url: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800&h=600&fit=crop' },
+    { keywords: ['pasta', 'spaghetti', 'linguine', 'fettuccine', 'penne'], url: 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=800&h=600&fit=crop' },
+    { keywords: ['chicken', 'poultry'], url: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=800&h=600&fit=crop' },
+    { keywords: ['steak', 'beef', 'ribeye', 'sirloin'], url: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=800&h=600&fit=crop' },
+    { keywords: ['salmon', 'fish', 'seafood', 'shrimp', 'tuna'], url: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800&h=600&fit=crop' },
+    { keywords: ['salad', 'greens', 'lettuce'], url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&h=600&fit=crop' },
+    { keywords: ['soup', 'broth', 'stew'], url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=800&h=600&fit=crop' },
+    { keywords: ['pizza'], url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=600&fit=crop' },
+    { keywords: ['burger', 'hamburger'], url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop' },
+    { keywords: ['taco', 'mexican', 'burrito', 'enchilada'], url: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800&h=600&fit=crop' },
+    { keywords: ['sushi', 'japanese', 'ramen'], url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800&h=600&fit=crop' },
+    { keywords: ['curry', 'indian', 'thai'], url: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800&h=600&fit=crop' },
+    { keywords: ['breakfast', 'eggs', 'omelet', 'omelette', 'pancake', 'waffle'], url: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800&h=600&fit=crop' },
+    { keywords: ['french toast', 'toast'], url: 'https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=800&h=600&fit=crop' },
+    { keywords: ['sandwich', 'sub', 'wrap'], url: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=800&h=600&fit=crop' },
+    { keywords: ['rice', 'fried rice', 'risotto'], url: 'https://images.unsplash.com/photo-1516714435131-44d6b64dc6a2?w=800&h=600&fit=crop' },
+    { keywords: ['potato', 'fries', 'mashed', 'scalloped'], url: 'https://images.unsplash.com/photo-1600891964092-4316c288032e?w=800&h=600&fit=crop' },
+    { keywords: ['cake', 'dessert', 'chocolate', 'brownie'], url: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&h=600&fit=crop' },
+    { keywords: ['cookie', 'biscuit'], url: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&h=600&fit=crop' },
+    { keywords: ['pie', 'tart'], url: 'https://images.unsplash.com/photo-1535920527002-b35e96722eb9?w=800&h=600&fit=crop' },
+    { keywords: ['smoothie', 'shake', 'drink'], url: 'https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=800&h=600&fit=crop' },
+    { keywords: ['bbq', 'barbecue', 'grill'], url: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=800&h=600&fit=crop' },
+    { keywords: ['pork', 'bacon', 'ham'], url: 'https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=800&h=600&fit=crop' },
+    { keywords: ['sauce', 'dip', 'dressing'], url: 'https://images.unsplash.com/photo-1534938665420-4193effeacc4?w=800&h=600&fit=crop' },
+    { keywords: ['bread', 'baguette', 'roll'], url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop' },
+    { keywords: ['chinese', 'stir fry', 'wok'], url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=800&h=600&fit=crop' },
+    { keywords: ['italian'], url: 'https://images.unsplash.com/photo-1498579150354-977475b7ea0b?w=800&h=600&fit=crop' },
+    { keywords: ['mediterranean', 'greek'], url: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800&h=600&fit=crop' },
+  ];
+
+  // Check title first, then cuisine
+  for (const { keywords, url } of imageMap) {
+    for (const keyword of keywords) {
+      if (titleLower.includes(keyword) || cuisineLower.includes(keyword)) {
+        return url;
+      }
+    }
+  }
+
+  // Default food image
+  return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop';
+}
+
+// Returns a sensible default unit based on the ingredient name
+function getDefaultUnit(ingredientName: string): string {
+  const name = ingredientName.toLowerCase();
+
+  // Seasonings that are typically "to taste"
+  if (name.includes('salt') || name.includes('pepper') || name === 'seasoning') {
+    return 'to taste';
+  }
+
+  // Items typically measured in cloves
+  if (name.includes('garlic')) {
+    return 'clove';
+  }
+
+  // Items typically measured in sprigs or bunches
+  if (name.includes('thyme') || name.includes('rosemary') || name.includes('parsley') ||
+      name.includes('cilantro') || name.includes('basil') || name.includes('mint') ||
+      name.includes('dill') || name.includes('oregano')) {
+    return 'sprig';
+  }
+
+  // Default to "ea" (each) for countable items
+  return 'ea';
 }
 
 function parseWildcardResponse(text: string): WildcardSuggestion {

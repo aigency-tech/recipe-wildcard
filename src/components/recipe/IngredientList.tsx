@@ -29,6 +29,9 @@ interface IngredientItemProps {
 }
 
 function IngredientItem({ ingredient, onWildcardPress }: IngredientItemProps) {
+  // Format quantity and unit together
+  const quantityUnit = `${ingredient.quantity || ''} ${ingredient.unit || 'ea'}`.trim();
+
   const content = (
     <View
       className={clsx(
@@ -44,10 +47,10 @@ function IngredientItem({ ingredient, onWildcardPress }: IngredientItemProps) {
       />
       <View className="flex-1">
         <View className="flex-row items-center flex-wrap">
-          <Text className="text-gray-600 mr-1">
-            {ingredient.quantity} {ingredient.unit}
+          <Text className="text-gray-600 font-medium" style={{ minWidth: 70 }}>
+            {quantityUnit}
           </Text>
-          <Text className="font-medium text-gray-900">{ingredient.name}</Text>
+          <Text className="font-medium text-gray-900 flex-1 flex-shrink">{ingredient.name}</Text>
           {ingredient.is_wildcard && (
             <WildcardBadge size="sm" className="ml-2" />
           )}
@@ -103,10 +106,10 @@ export function EditableIngredientList({
         >
           <TouchableOpacity onPress={() => onEdit(index)} className="flex-1">
             <View className="flex-row items-center">
-              <Text className="text-gray-600 mr-1">
-                {ingredient.quantity} {ingredient.unit}
+              <Text className="text-gray-600 font-medium" style={{ minWidth: 70 }}>
+                {ingredient.quantity || ''} {ingredient.unit || 'ea'}
               </Text>
-              <Text className="font-medium text-gray-900">{ingredient.name}</Text>
+              <Text className="font-medium text-gray-900 flex-1 flex-shrink">{ingredient.name}</Text>
               {ingredient.is_wildcard && (
                 <WildcardBadge size="sm" className="ml-2" />
               )}

@@ -1,103 +1,105 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  FlatList,
-} from 'react-native';
+import React from 'react';
+import { View, Text, Pressable } from 'react-native';
+import { Link } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeArea } from '../../../src/components/SafeArea';
-import { RecipeCard } from '../../../src/components/recipe/RecipeCard';
-import { GuestBanner } from '../../../src/components/auth/EmailAuthForm';
-import { useRecipes } from '../../../src/hooks/useRecipes';
-import { CUISINE_OPTIONS } from '../../../src/lib/constants';
+import { Card } from '../../../src/components/ui/Card';
 
 export default function HomeScreen() {
-  const [selectedCuisine, setSelectedCuisine] = useState<string | undefined>();
-  const { recipes, isLoading, refresh } = useRecipes({
-    cuisine: selectedCuisine,
-    limit: 20,
-  });
-
-  const cuisineFilters = ['All', ...CUISINE_OPTIONS];
-
   return (
-    <SafeArea className="flex-1 bg-white" edges={['bottom']}>
-      <GuestBanner />
+    <LinearGradient
+      colors={['#E0FAF7', '#FFF5F4']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <SafeArea className="flex-1" edges={['bottom']}>
+        <View className="px-4 pt-4 pb-6">
+          <Text className="text-2xl font-bold text-gray-900">Create Recipe</Text>
+          <Text className="text-secondary-700 mt-1">
+            Share your culinary creations with the world
+          </Text>
+        </View>
 
-      <View className="px-4 pt-4 pb-2">
-        <Text className="text-2xl font-bold text-gray-900">
-          Discover Recipes
-        </Text>
-        <Text className="text-gray-500 mt-1">
-          Find your next culinary adventure
-        </Text>
-      </View>
+        <View className="px-4" style={{ gap: 16 }}>
+          <Link href="/(tabs)/create/upload" asChild>
+            <Pressable>
+              <Card variant="elevated">
+                <View className="flex-row items-center">
+                  <View className="w-16 h-16 rounded-2xl bg-primary-100 items-center justify-center mr-4">
+                    <Text className="text-3xl">📄</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-lg font-semibold text-gray-900">
+                      Upload Recipe File
+                    </Text>
+                    <Text className="text-gray-500 mt-1">
+                      Upload a text file and optionally add wildcard ingredients
+                    </Text>
+                  </View>
+                  <Text className="text-primary-400 text-xl">→</Text>
+                </View>
+              </Card>
+            </Pressable>
+          </Link>
 
-      <View className="h-12 mb-2">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
-        >
-          {cuisineFilters.map((cuisine) => {
-            const isSelected =
-              cuisine === 'All' ? !selectedCuisine : selectedCuisine === cuisine;
+          <Link href="/(tabs)/create/import-url" asChild>
+            <Pressable>
+              <Card variant="elevated">
+                <View className="flex-row items-center">
+                  <View className="w-16 h-16 rounded-2xl bg-accent-100 items-center justify-center mr-4">
+                    <Text className="text-3xl">🔗</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-lg font-semibold text-gray-900">
+                      Import from URL
+                    </Text>
+                    <Text className="text-gray-500 mt-1">
+                      Paste a link to any recipe website to import it
+                    </Text>
+                  </View>
+                  <Text className="text-accent-400 text-xl">→</Text>
+                </View>
+              </Card>
+            </Pressable>
+          </Link>
 
-            return (
-              <TouchableOpacity
-                key={cuisine}
-                onPress={() =>
-                  setSelectedCuisine(cuisine === 'All' ? undefined : cuisine)
-                }
-                className={`mr-2 px-4 py-2 rounded-full ${
-                  isSelected ? 'bg-primary-500' : 'bg-gray-100'
-                }`}
-              >
-                <Text
-                  className={`font-medium ${
-                    isSelected ? 'text-white' : 'text-gray-700'
-                  }`}
-                >
-                  {cuisine}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+          <Link href="/(tabs)/create/ai-generate" asChild>
+            <Pressable>
+              <Card variant="elevated">
+                <View className="flex-row items-center">
+                  <View className="w-16 h-16 rounded-2xl bg-secondary-100 items-center justify-center mr-4">
+                    <Text className="text-3xl">🤖</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-lg font-semibold text-gray-900">
+                      AI Generate
+                    </Text>
+                    <Text className="text-gray-500 mt-1">
+                      Describe what you want and let AI create the recipe
+                    </Text>
+                  </View>
+                  <Text className="text-secondary-400 text-xl">→</Text>
+                </View>
+              </Card>
+            </Pressable>
+          </Link>
 
-      <FlatList
-        data={recipes}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <View className="px-4 mb-4">
-            <RecipeCard
-              recipe={item}
-              variant={index === 0 ? 'featured' : 'default'}
-            />
+        </View>
+
+        <View className="px-4 mt-8">
+          <View className="bg-accent-50 rounded-2xl p-4 border border-accent-200">
+            <Text className="text-sm font-medium text-accent-700 mb-2">
+              💡 Pro Tip
+            </Text>
+            <Text className="text-accent-800 text-sm">
+              Try adding a Wildcard ingredient to make your recipes stand out!
+              Our AI suggests unexpected ingredients backed by food science that
+              add unique flavor dimensions.
+            </Text>
           </View>
-        )}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refresh} />
-        }
-        contentContainerStyle={{ paddingVertical: 8 }}
-        ListEmptyComponent={
-          <View className="flex-1 items-center justify-center py-20">
-            {isLoading ? (
-              <Text className="text-gray-500">Loading recipes...</Text>
-            ) : (
-              <>
-                <Text className="text-5xl mb-4">🍽️</Text>
-                <Text className="text-gray-500 text-center">
-                  No recipes found.{'\n'}Be the first to create one!
-                </Text>
-              </>
-            )}
-          </View>
-        }
-      />
-    </SafeArea>
+        </View>
+      </SafeArea>
+    </LinearGradient>
   );
 }

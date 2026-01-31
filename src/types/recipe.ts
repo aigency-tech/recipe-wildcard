@@ -1,4 +1,4 @@
-export type RecipeSource = 'user_uploaded' | 'ai_generated' | 'wildcard_modified' | 'template';
+export type RecipeSource = 'user_uploaded' | 'ai_generated' | 'wildcard_modified' | 'template' | 'imported';
 
 export interface Ingredient {
   id: string;
@@ -75,6 +75,7 @@ export interface CreateRecipeInput {
   description: string;
   image_url?: string;
   source: RecipeSource;
+  source_url?: string;
   prep_time_minutes?: number;
   cook_time_minutes?: number;
   servings?: number;

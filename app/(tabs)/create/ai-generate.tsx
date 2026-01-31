@@ -14,13 +14,14 @@ import { Card } from '../../../src/components/ui/Card';
 import { Badge, WildcardBadge } from '../../../src/components/ui/Badge';
 import { RecipeCard } from '../../../src/components/recipe/RecipeCard';
 import { generateRecipe } from '../../../src/lib/gemini';
-import { useCreateRecipe } from '../../../src/hooks/useRecipes';
+import { useCreateRecipe, useSavedRecipes } from '../../../src/hooks/useRecipes';
 import { CUISINE_OPTIONS, DIETARY_OPTIONS } from '../../../src/lib/constants';
 import type { CreateRecipeInput } from '../../../src/types';
 
 export default function AIGenerateScreen() {
   const router = useRouter();
   const { createRecipe, isLoading: isSaving } = useCreateRecipe();
+  const { saveRecipe: bookmarkRecipe } = useSavedRecipes();
 
   const [prompt, setPrompt] = useState('');
   const [cuisine, setCuisine] = useState('');
@@ -71,6 +72,13 @@ export default function AIGenerateScreen() {
 
     try {
       const recipe = await createRecipe(generatedRecipe);
+      // Also bookmark the recipe to user's saved list
+      try {
+        await bookmarkRecipe(recipe.id);
+      } catch (bookmarkError) {
+        // Silently fail if bookmarking fails (user might not be logged in)
+        console.log('Could not bookmark recipe:', bookmarkError);
+      }
       Alert.alert('Success', 'Recipe saved successfully!', [
         { text: 'View Recipe', onPress: () => router.push(`/home/${recipe.id}`) },
       ]);

@@ -123,6 +123,9 @@ export const useRecipeStore = create<RecipeState & RecipeActions>((set, get) => 
 
       const { data: { session } } = await supabase.auth.getSession();
 
+      console.log('Creating recipe:', input.title);
+      console.log('User session:', session?.user?.id || 'anonymous');
+
       const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .insert({
@@ -142,7 +145,12 @@ export const useRecipeStore = create<RecipeState & RecipeActions>((set, get) => 
         .select()
         .single();
 
-      if (recipeError) throw recipeError;
+      if (recipeError) {
+        console.error('Recipe insert error:', recipeError);
+        throw recipeError;
+      }
+
+      console.log('Recipe created with ID:', recipe.id);
 
       if (input.ingredients.length > 0) {
         const { error: ingredientsError } = await supabase.from('ingredients').insert(
@@ -157,7 +165,10 @@ export const useRecipeStore = create<RecipeState & RecipeActions>((set, get) => 
           }))
         );
 
-        if (ingredientsError) throw ingredientsError;
+        if (ingredientsError) {
+          console.error('Ingredients insert error:', ingredientsError);
+          throw ingredientsError;
+        }
       }
 
       if (input.instructions.length > 0) {
@@ -169,11 +180,32 @@ export const useRecipeStore = create<RecipeState & RecipeActions>((set, get) => 
           }))
         );
 
-        if (instructionsError) throw instructionsError;
+        if (instructionsError) {
+          console.error('Instructions insert error:', instructionsError);
+          throw instructionsError;
+        }
+      }
+
+      // Auto-save the recipe to user's saved recipes if logged in
+      if (session?.user?.id) {
+        const { error: saveError } = await supabase
+          .from('saved_recipes')
+          .insert({
+            user_id: session.user.id,
+            recipe_id: recipe.id,
+          });
+
+        if (saveError) {
+          // Don't throw on save error - recipe was still created successfully
+          console.warn('Auto-save to saved_recipes failed:', saveError);
+        } else {
+          console.log('Recipe auto-saved to user\'s saved recipes');
+        }
       }
 
       return recipe;
     } catch (error: any) {
+      console.error('Create recipe failed:', error);
       set({ error: error.message || 'Failed to create recipe' });
       throw error;
     } finally {
@@ -360,7 +392,7 @@ export const useRecipeStore = create<RecipeState & RecipeActions>((set, get) => 
       .select('id')
       .eq('user_id', session.user.id)
       .eq('recipe_id', recipeId)
-      .single();
+      .maybeSingle();
 
     return !!data;
   },

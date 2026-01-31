@@ -186,7 +186,7 @@ export async function isRecipeSaved(recipeId: string): Promise<boolean> {
     .select('id')
     .eq('user_id', session.user.id)
     .eq('recipe_id', recipeId)
-    .single();
+    .maybeSingle();
 
   return !!data;
 }

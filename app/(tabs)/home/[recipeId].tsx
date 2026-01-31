@@ -31,7 +31,12 @@ export default function RecipeDetailScreen() {
 
   useEffect(() => {
     if (user && recipeId) {
-      checkIfSaved(recipeId).then(setIsSaved);
+      checkIfSaved(recipeId)
+        .then(setIsSaved)
+        .catch((err) => {
+          console.error('Error checking saved status:', err);
+          setIsSaved(false);
+        });
     }
   }, [user, recipeId]);
 
