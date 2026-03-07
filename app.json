@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.recipewildcard.app"
+      "bundleIdentifier": "com.recipewildcard.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +26,10 @@
         "backgroundColor": "#0f0f23"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.recipewildcard.app"
+      "package": "com.recipewildcard.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -42,6 +48,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7eb05526-c9c8-4ed3-a214-81bfe1d68196"
+      }
+    },
+    "owner": "jgb7061"
   }
 }
