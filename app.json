@@ -33,7 +33,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "single",
+      "name": "Recipe Wildcard",
+      "themeColor": "#FF6F61"
     },
     "plugins": [
       "expo-router",

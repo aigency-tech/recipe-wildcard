@@ -6,8 +6,8 @@ import {
   Image,
   TouchableOpacity,
   Share,
-  Alert,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeArea } from '../../../src/components/SafeArea';
 import { Card } from '../../../src/components/ui/Card';

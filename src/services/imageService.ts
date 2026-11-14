@@ -46,7 +46,10 @@ export async function uploadImage(uri: string, recipeId: string): Promise<string
   const response = await fetch(uri);
   const blob = await response.blob();
 
-  const fileExt = uri.split('.').pop() || 'jpg';
+  // On web, picker URIs are data:/blob: URLs, so derive the extension from the blob's MIME type.
+  const fileExt = blob.type?.startsWith('image/')
+    ? blob.type.split('/')[1].replace('jpeg', 'jpg')
+    : uri.split('.').pop() || 'jpg';
   const fileName = `${recipeId}.${fileExt}`;
   const filePath = `recipe-images/${fileName}`;
 

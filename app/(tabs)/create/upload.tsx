@@ -4,9 +4,10 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -46,7 +47,14 @@ export default function UploadScreen() {
       setFileName(file.name);
 
       // Read file content
-      const content = await FileSystem.readAsStringAsync(file.uri);
+      let content: string;
+      if (Platform.OS === 'web') {
+        // expo-file-system isn't available on web; read the picked File/blob directly.
+        const blob: Blob = file.file ?? (await (await fetch(file.uri)).blob());
+        content = await blob.text();
+      } else {
+        content = await FileSystem.readAsStringAsync(file.uri);
+      }
       setFileContent(content);
     } catch (error) {
       console.error('Error picking document:', error);

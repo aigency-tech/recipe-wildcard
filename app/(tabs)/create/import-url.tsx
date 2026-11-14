@@ -4,10 +4,10 @@ import {
   Text,
   ScrollView,
   TextInput,
-  Alert,
   Keyboard,
   TouchableOpacity,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { useRouter } from 'expo-router';
 import { SafeArea } from '../../../src/components/SafeArea';
 import { Button } from '../../../src/components/ui/Button';

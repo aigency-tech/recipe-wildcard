@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_API_KEY } from './constants';
 import type { GenerateRecipeInput, CreateRecipeInput, WildcardSuggestion, WildcardIngredient } from '../types';
@@ -54,7 +55,10 @@ export async function parseRecipeFromUrl(url: string): Promise<CreateRecipeInput
   // Fetch the webpage content
   let htmlContent: string;
   try {
-    const response = await fetch(url, {
+    // Browsers block cross-origin page fetches (CORS), so on web we go through our Vercel function.
+    const response = Platform.OS === 'web'
+      ? await fetch(`/api/fetch-url?url=${encodeURIComponent(url)}`)
+      : await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',

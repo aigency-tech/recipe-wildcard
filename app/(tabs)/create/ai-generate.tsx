@@ -4,8 +4,8 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { useRouter } from 'expo-router';
 import { SafeArea } from '../../../src/components/SafeArea';
 import { Input, TextArea } from '../../../src/components/ui/Input';

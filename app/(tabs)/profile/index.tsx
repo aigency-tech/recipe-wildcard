@@ -5,10 +5,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   Switch,
   Linking,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeArea } from '../../../src/components/SafeArea';

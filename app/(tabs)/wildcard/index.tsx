@@ -5,8 +5,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import type { TextInput as TextInputType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeArea } from '../../../src/components/SafeArea';
