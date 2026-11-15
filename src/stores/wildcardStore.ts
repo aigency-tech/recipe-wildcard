@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { suggestWildcardIngredient, explainWildcardPairing } from '../lib/gemini';
+import { suggestWildcardIngredient, explainWildcardPairing } from '../lib/ai';
 import type { WildcardIngredient, WildcardSuggestion } from '../types';
 
 interface WildcardState {

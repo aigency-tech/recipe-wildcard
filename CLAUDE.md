@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Recipe Wildcard is a React Native mobile app built with Expo SDK 54 that helps users discover recipes with AI-powered "wildcard" ingredient suggestions. It uses Gemini 2.5 Flash for AI features and Supabase for backend/auth/storage.
+Recipe Wildcard is a React Native mobile app built with Expo SDK 54 that helps users discover recipes with AI-powered "wildcard" ingredient suggestions. It uses Claude (Opus 5.5, via the Anthropic API) for AI features and Supabase for backend/auth/storage.
 
 ## Commands
 
@@ -13,6 +13,8 @@ Recipe Wildcard is a React Native mobile app built with Expo SDK 54 that helps u
 - `npm run android` — Start on Android emulator
 - `npm run web` — Start web version
 - `npm run reset` — Clear cache and restart (`expo start --clear`)
+- `npm run build:web` — Static web export to `dist/` (what Vercel runs)
+- `npx vercel dev` — Run the web app with the `/api` functions locally (`expo start` does not serve `/api`)
 
 No test runner is configured.
 
@@ -24,7 +26,7 @@ No test runner is configured.
 
 **Services Layer:** `src/services/` handles Supabase CRUD operations (auth, recipes, images, wildcard catalog).
 
-**AI Integration:** `src/lib/gemini.ts` is the main AI module (~600 lines). Key functions: `generateRecipe()`, `parseRecipeFromUrl()`, `parseRecipeFromText()`, `suggestWildcardIngredient()`, `addWildcardToRecipe()`. Uses Zod schemas for response validation.
+**AI Integration:** All Claude calls run server-side in the Vercel function `api/ai.ts`, which takes a `{ task, input }` body, builds the prompt with `src/lib/aiPrompts.ts` (must stay free of React Native imports), and returns the model's text. `src/lib/ai.ts` is the client module (`generateRecipe()`, `parseRecipeFromUrl()`, `parseRecipeFromText()`, `suggestWildcardIngredient()`, `addWildcardToRecipe()`, `explainWildcardPairing()`) — it POSTs to `/api/ai` and parses the JSON responses. For URL import the server fetches the page itself (`api/_lib/fetchPage.ts`, with private-network blocking).
 
 **Custom Hooks:** `src/hooks/` wraps store actions with React lifecycle (useAuth, useRecipes, useWildcard, etc.).
 
@@ -51,9 +53,10 @@ TypeScript path aliases are configured in `tsconfig.json`:
 Required in `.env` (see `.env.example`):
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- `EXPO_PUBLIC_GEMINI_API_KEY`
+- `ANTHROPIC_API_KEY` — server-side only (Vercel env); never expose with `EXPO_PUBLIC_`
+- `EXPO_PUBLIC_API_URL` — native builds only; base URL of the deployed `/api` functions
 
-All must be prefixed with `EXPO_PUBLIC_` to be accessible in the Expo app.
+Variables read by the app must be prefixed with `EXPO_PUBLIC_` (they are bundled into the client); secrets like `ANTHROPIC_API_KEY` must not be.
 
 ## Database
 
@@ -63,5 +66,5 @@ Supabase PostgreSQL. Schema defined in `supabase-schema.sql`. Key tables: `profi
 
 - **Guest mode:** Anonymous users can create recipes but not save favorites. Recipes created anonymously are marked with `is_anonymous: true`.
 - **Recipe sources:** Tracked via `source` field — `user_uploaded`, `ai_generated`, `wildcard_modified`, `template`.
-- **Recipe import:** URL import tries JSON-LD structured data first, then falls back to Gemini for intelligent extraction.
+- **Recipe import:** URL import tries JSON-LD structured data first, then falls back to Claude for intelligent extraction.
 - **Types:** Defined in `src/types/` — always use these for Recipe, Ingredient, Instruction, User, WildcardIngredient interfaces.

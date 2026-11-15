@@ -13,7 +13,7 @@ import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
 import { Badge, WildcardBadge } from '../../../src/components/ui/Badge';
 import { RecipeCard } from '../../../src/components/recipe/RecipeCard';
-import { generateRecipe } from '../../../src/lib/gemini';
+import { generateRecipe } from '../../../src/lib/ai';
 import { useCreateRecipe, useSavedRecipes } from '../../../src/hooks/useRecipes';
 import { CUISINE_OPTIONS, DIETARY_OPTIONS } from '../../../src/lib/constants';
 import type { CreateRecipeInput } from '../../../src/types';

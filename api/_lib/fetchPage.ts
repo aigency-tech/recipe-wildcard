@@ -1,5 +1,4 @@
-// Vercel serverless function: fetches a recipe page server-side so the web app
-// can import recipes from URLs without being blocked by browser CORS rules.
+// Server-side page fetch with SSRF protection. Files under api/_lib are not exposed as routes.
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
@@ -21,32 +20,37 @@ function isPrivateAddress(ip: string): boolean {
   );
 }
 
-export async function GET(request: Request): Promise<Response> {
-  const target = new URL(request.url).searchParams.get('url');
-  if (!target) return new Response('Missing url parameter', { status: 400 });
+export class FetchPageError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
 
+export async function fetchPage(target: string): Promise<string> {
   let parsed: URL;
   try {
     parsed = new URL(target);
   } catch {
-    return new Response('Invalid URL', { status: 400 });
+    throw new FetchPageError('Invalid URL', 400);
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return new Response('Only http(s) URLs are allowed', { status: 400 });
+    throw new FetchPageError('Only http(s) URLs are allowed', 400);
   }
 
-  // Block requests to internal/private networks (SSRF protection).
+  // Block requests to internal/private networks.
   try {
     const addrs = await lookup(parsed.hostname, { all: true });
     if (addrs.some((a) => isPrivateAddress(a.address))) {
-      return new Response('URL not allowed', { status: 400 });
+      throw new FetchPageError('URL not allowed', 400);
     }
-  } catch {
-    return new Response('Could not resolve host', { status: 400 });
+  } catch (e) {
+    if (e instanceof FetchPageError) throw e;
+    throw new FetchPageError('Could not resolve host', 400);
   }
 
+  let upstream: Response;
   try {
-    const upstream = await fetch(parsed.toString(), {
+    upstream = await fetch(parsed.toString(), {
       redirect: 'follow',
       signal: AbortSignal.timeout(15000),
       headers: {
@@ -56,18 +60,13 @@ export async function GET(request: Request): Promise<Response> {
         'Accept-Language': 'en-US,en;q=0.5',
       },
     });
-
-    const body = await upstream.text();
-    if (body.length > MAX_BYTES) {
-      return new Response('Page too large', { status: 413 });
-    }
-
-    return new Response(body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
   } catch {
-    return new Response('Failed to fetch URL', { status: 502 });
+    throw new FetchPageError('Unable to access the URL. Please check the link and try again.', 502);
   }
+  if (!upstream.ok) {
+    throw new FetchPageError(`Failed to fetch URL: ${upstream.status} ${upstream.statusText}`, 502);
+  }
+  const body = await upstream.text();
+  if (body.length > MAX_BYTES) throw new FetchPageError('Page too large', 413);
+  return body;
 }

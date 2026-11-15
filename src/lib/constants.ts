@@ -2,7 +2,8 @@ export const APP_NAME = 'Recipe Wildcard';
 
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-export const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+// Base URL of the deployed /api functions. Empty on web (same origin); set for native builds.
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
 export const APP_SCHEME = process.env.EXPO_PUBLIC_APP_SCHEME || 'recipewildcard';
 
 export const STORAGE_KEYS = {

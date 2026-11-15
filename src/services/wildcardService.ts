@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { suggestWildcardIngredient, explainWildcardPairing } from '../lib/gemini';
+import { suggestWildcardIngredient, explainWildcardPairing } from '../lib/ai';
 import type { WildcardIngredient, WildcardSuggestion } from '../types';
 
 export async function getWildcardCatalog(): Promise<WildcardIngredient[]> {

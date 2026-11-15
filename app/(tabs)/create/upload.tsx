@@ -15,7 +15,7 @@ import { SafeArea } from '../../../src/components/SafeArea';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
 import { Badge, WildcardBadge } from '../../../src/components/ui/Badge';
-import { parseRecipeFromText, addWildcardToRecipe } from '../../../src/lib/gemini';
+import { parseRecipeFromText, addWildcardToRecipe } from '../../../src/lib/ai';
 import { useCreateRecipe } from '../../../src/hooks/useRecipes';
 import type { CreateRecipeInput } from '../../../src/types';
 
