@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../src/theme/colors';
 
@@ -29,7 +29,9 @@ export default function TabLayout() {
           borderBottomWidth: 0,
           paddingTop: insets.top + 4,
           paddingBottom: 8,
-          height: insets.top + 56,
+          // Web text/icon metrics are taller than native, so the tab items need more room
+          // (icon 25 + item padding 10 + label ~15) or the labels get clipped.
+          height: insets.top + (Platform.OS === 'web' ? 66 : 56),
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.05,
